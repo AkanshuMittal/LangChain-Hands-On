@@ -6,3 +6,4 @@ dotenv
 google-genai
 streamlit
 langchain-ollama
+langchain-groq
