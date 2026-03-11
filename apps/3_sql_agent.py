@@ -7,6 +7,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
+import streamlit as st
 
 db = SQLDatabase.from_uri("sqlite:///tasks.db")
 db.run("""
@@ -23,7 +24,6 @@ db.run("""
 model = ChatGroq(model="openai/gpt-oss-20b")
 toolkit = SQLDatabaseToolkit(db=db, llm=model)
 tools = toolkit.get_tools()
-memory = InMemorySaver()
 
 system_prompt = """
 You are a task management assistant that interacts with a SQL database containing a 'tasks' table. 
@@ -42,23 +42,38 @@ CRUD OPERATIONS:
 Table schema: id, title, description, status(pending/in_progress/completed), created_at.
 """
 
-agent = create_agent(
-    model=model,
-    tools=tools,
-    system_prompt=system_prompt,
-    checkpointer=memory
-)
+@st.cache_resource   
+def get_agent():
+    agent = create_agent(
+        model=model,
+        tools=tools,
+        system_prompt=system_prompt,
+        checkpointer=InMemorySaver()
+    )
+    return agent
 
-while True:
-    query = input("User: ")
-    if query.lower() in ["quit","bye","exit"]:
-        print("GoodBye 👋")
-        break
-   
-    response = agent.invoke({"messages": [{"role": "user", "content": query}]},
-                            {"configurable": {"thread_id": "1"}}
-                     )
-    result = response["messages"][-1].content
-    print("AI: ", result)
+agent = get_agent()
+
+st.subheader("🤖 TaskBot - Manage Your Tasks")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for message in st.session_state.messages:
+   st.chat_message(message["role"]).markdown(message["content"])
+
+prompt = st.chat_input("Ask me to manage your tasks ?")
+if prompt:
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content":prompt})
+    with st.chat_message("ai"):
+        with st.spinner("Processing..."):
+        
+            response = agent.invoke({"messages": [{"role": "user", "content": prompt}]},
+                                    {"configurable": {"thread_id": "1"}}
+                            )
+            result = response["messages"][-1].content
+            st.markdown(result)
+            st.session_state.messages.append({"role": "ai", "content": result})
 
 
