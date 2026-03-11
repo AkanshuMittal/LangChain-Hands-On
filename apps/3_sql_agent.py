@@ -42,3 +42,23 @@ CRUD OPERATIONS:
 Table schema: id, title, description, status(pending/in_progress/completed), created_at.
 """
 
+agent = create_agent(
+    model=model,
+    tools=tools,
+    system_prompt=system_prompt,
+    checkpointer=memory
+)
+
+while True:
+    query = input("User: ")
+    if query.lower() in ["quit","bye","exit"]:
+        print("GoodBye 👋")
+        break
+   
+    response = agent.invoke({"messages": [{"role": "user", "content": query}]},
+                            {"configurable": {"thread_id": "1"}}
+                     )
+    result = response["messages"][-1].content
+    print("AI: ", result)
+
+
